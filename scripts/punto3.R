@@ -165,7 +165,18 @@ prices_med$dist_hospital <- nearest_amenity(prices_med, hospitals_med_points)
 prices_med$dist_school <- nearest_amenity(prices_med,  hospitals_med_points)
 prices_med$dist_bus <- nearest_amenity(prices_med, bus_med_points)
 
+### Lastly, add UPL and comunas
+upl_bog <- st_read("data/punto3/unidadplaneamientolocal.gpkg") %>%
+  st_transform(crs=3116) %>%
+  dplyr::select(CODIGO_UPL, SHAPE)
 
+comunas_med <- st_read("data/punto3/comunas_medellin") %>%
+  st_transform(crs=3116) %>%
+  filter(grepl("Comuna", IDENTIFICA)) %>%
+  dplyr::select(IDENTIFICA, geometry)
+
+prices_bog <- st_join(prices_bog, upl_bog, join= st_nearest_feature)
+prices_med <- st_join(prices_med, comunas_med, join= st_nearest_feature)
 
 
 
