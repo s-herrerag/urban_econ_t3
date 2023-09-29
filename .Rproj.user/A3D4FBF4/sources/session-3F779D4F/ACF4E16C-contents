@@ -1,0 +1,222 @@
+# Cargar el paquete "pacman" que contiene la funci?n p_load
+require(pacman)
+
+# Cargar y/o instalar las siguientes librer?as
+p_load(tidyverse, rio,
+       viridis, # paletas de colores
+       sf, # datos espaciales
+       leaflet, # visualizaciones
+       tmaptools, # geocodificar
+       ggsn, # barra de escala del mapa
+       tidycensus,
+       osmdata) # paquetes con datos censales
+
+# Establecer el directorio de trabajo
+setwd("/Users/santiagoherreragarcia/Library/CloudStorage/OneDrive-Universidaddelosandes/Semestre 2023-2/Economía Urbana/Complemetarias/Complementaria 3")
+
+# Leer archivos shapefile de diferentes tipos de elementos espaciales
+estacion_calida_aire <- st_read(dsn = "IDECA/Estacion_calida_aire.shp")
+pm25_promedio_anual <- st_read(dsn = "IDECA/Pm25_promedio_anual.shp")
+unidad_planeamiento_local <- st_read(dsn = "IDECA/UnidadPlaneamientoLocal.shp")
+
+# Filtrar unidades de planeamiento local con la condici?n "VOCACION" diferente de "Rural"
+table(unidad_planeamiento_local$VOCACION)
+unidad_planeamiento_local <- unidad_planeamiento_local %>%
+  filter(VOCACION != "Rural")
+
+# Descargar datos de parques desde OSM
+Parques_OSM2 <- opq(bbox = c(-74.25, 4.45, -74, 4.9)) %>%
+  add_osm_feature(key = "leisure", value = "park") %>%
+  osmdata_sf()
+
+# Obtener los puntos de inter?s desde los datos de OSM
+OSM2_puntos <- Parques_OSM2$osm_points
+
+# Agregar columnas de Latitud y Longitud a partir de la geometr?a
+OSM2_puntos$Latitud <- st_coordinates(OSM2_puntos$geometry)[, 2]
+OSM2_puntos$Longitud <- st_coordinates(OSM2_puntos$geometry)[, 1]
+
+# Crear un nuevo dataframe sin la geometr?a
+OSM2_ll <- as.data.frame(OSM2_puntos)
+OSM2_ll <- subset(OSM2_ll, select = -geometry)
+
+# Convertir el dataframe en un objeto espacial
+OSM2_puntos <- st_as_sf(OSM2_ll, coords = c("Longitud", "Latitud"), crs = 4326)
+
+# Imprimir informaci?n sobre los sistemas de referencia espacial (CRS)
+print(st_crs(OSM2_puntos))
+print(st_crs(pm25_promedio_anual))
+
+# Transformar el CRS de los puntos OSM2_puntos
+OSM2_puntos <- st_transform(OSM2_puntos, crs = 4686)
+
+# Filtrar datos de pm25_promedio_anual para diferentes a?os (2018, 2019, 2020)
+d18 <- pm25_promedio_anual[pm25_promedio_anual$ano == 2018, ]
+d19 <- pm25_promedio_anual[pm25_promedio_anual$ano == 2019, ]
+d20 <- pm25_promedio_anual[pm25_promedio_anual$ano == 2020, ]
+
+# Crear mapas individuales para los diferentes a?os
+mapa <- ggplot() +
+  geom_sf(data = d18, aes(fill = concpm25), size = 1)
+print(mapa)
+
+mapa <- ggplot() +
+  geom_sf(data = d19, aes(fill = concpm25), size = 1)
+print(mapa)
+
+mapa <- ggplot() +
+  geom_sf(data = d20, aes(fill = concpm25), size = 1)
+print(mapa)
+
+# Crear un mapa combinado con pm25_promedio_anual y OSM2_puntos
+mapa <- ggplot() +
+  geom_sf(data = pm25_promedio_anual, aes(fill = concpm25), size = 1) +
+  geom_sf(data = OSM2_puntos, color = "black", size = 0.03)
+print(mapa)
+
+# Realizar una uni?n espacial entre OSM2_puntos y pm25_promedio_anual
+Parks_p25 = st_join(x = OSM2_puntos, y = pm25_promedio_anual)
+
+## pregunta "obvia": ?por qu? hay m?s observaciones que antes?
+
+# ?Correci?n? 
+
+# Ejercicio: Encontrar los parques que experimentaron una disminuci?n en la calidad del aire
+# durante los a?os 2019 y 2020
+
+# Paso 1: Seleccionar las columnas "concpm25" en d19 y d20
+d19 <- d19 %>% dplyr::select(p25_19 = concpm25)
+d20 <- d20 %>% dplyr::select(p25_20 = concpm25)
+
+# Paso 2: Realizar una uni?n espacial
+Prks_p25 <- OSM2_puntos %>%
+  st_join(d19) %>%
+  st_join(d20)
+
+# Paso 3: Calcular la diferencia entre 2019 y 2020 y filtrar valores no nulos
+Prks_p25 <- Prks_p25 %>%
+  mutate(delta = p25_19 - p25_20) %>%
+  filter(!is.na(delta))
+
+# Paso 4: Calcular el valor m?nimo y contar ocurrencias
+min_delta <- min(Prks_p25$delta)
+conteo <- sum(Prks_p25$delta == min_delta)
+
+print(paste("Valor m?nimo de delta:", min_delta))
+print(paste("N?mero de observaciones iguales al m?nimo:", conteo))
+
+# Crear un histograma de la variable delta en el dataframe Prks_p25
+hist(Prks_p25$delta, 
+     main = "Histograma de Delta",  # T?tulo del histograma
+     xlab = "Valor de Delta",      # Etiqueta del eje x
+     ylab = "Frecuencia",          # Etiqueta del eje y
+     col = "blue",                # Color de las barras del histograma
+     border = "black",            # Color del borde de las barras
+     breaks = 20)                 # N?mero de intervalos (ajusta seg?n tu preferencia)
+
+# Crear un mapa personalizado
+titulo <- "Delta 2019 - 2020: Calidad del aire "
+mapa <- ggplot() +
+  geom_sf(data = Prks_p25, aes(color = delta), alpha = 0.5) +
+  geom_sf(data = unidad_planeamiento_local, size = 0.2, color = "transparent", fill = "transparent", aes()) +
+  geom_sf(data = unidad_planeamiento_local, size = 0.2, color = "black", fill = NA) +
+  scale_colour_gradient2(name = "Delta", low = "blue", high = "red") +
+  labs(title = titulo) +
+  theme_minimal()
+print(mapa)
+
+# Ejercicio 2.0: Calcular el promedio del delta por Unidad de Planeamiento Local (UPL)
+
+# Paso 1: Seleccionar la columna "Nombre" en UPL (Filtrar)
+unidad_planeamiento_local1<- unidad_planeamiento_local %>%
+  select(NOMBRE)
+
+# Paso 2: Realizar una uni?n espacial
+
+upl_prks <- unidad_planeamiento_local1 %>%
+  st_join(Prks_p25)
+
+# Paso 3: Calcular el promedio del delta por UPL
+upl_prks1<-as.data.frame(upl_prks)
+proms <- upl_prks1 %>%
+  group_by(NOMBRE) %>%
+  summarise(prom_delta=mean(delta))
+
+# Ver los resultados
+#view(resultados)
+
+# Limpiar el entorno
+rm(list = ls())
+
+# Configurar una clave de API para TidyCensus
+census_api_key("e7a8ac1b8ea7fdb7866411c5701f1ae247d690d6")
+
+# Cargar variables para el a?o 2021
+v21 <- load_variables(2021, "acs5", cache = TRUE)
+View(v21)
+
+# Obtener datos de valor medio de viviendas para Cook County, Chicago
+chicago <- get_acs(geography = "block group", variables = "B25077_001E", state = "IL", county = "Cook County", year = 2021, geometry = T)
+
+# Obtener datos de valor medio de viviendas para Suffolk County, Boston
+boston <- get_acs(geography = "block group", variables = "B25077_001E", state = "MA", county = "Suffolk County", year = 2021, geometry = T)
+
+# Clase del objeto
+class(chicago)
+
+# Crear un mapa de datos para Boston
+leaflet(boston) %>% addTiles() %>% addPolygons(color = "green", fill = NA, weight = 2)
+
+# Ubicaci?n de Boston CBD
+boston_cbd <- geocode_OSM("Carmen Park, Boston", as.sf = T)
+
+# Crear un mapa de Boston CBD
+leaflet() %>% addTiles() %>% addCircleMarkers(data = boston_cbd, col = "red", weight = 3)
+
+# Ubicaci?n de Chicago CBD
+chicago_cbd <- geocode_OSM("233 S Wacker Dr, Chicago, IL 60606, Estados Unidos", as.sf = T)
+
+# Crear un mapa de Chicago CBD
+leaflet() %>% addTiles() %>% addCircleMarkers(data = chicago_cbd, col = "red", weight = 3)
+
+# Calcular distancias a Boston CBD
+boston_cbd <- boston_cbd %>% st_transform(st_crs(boston))
+boston$dist_CBD <- st_distance(boston, boston_cbd)
+boston <- boston %>% mutate(dist_CBD = as.numeric(dist_CBD) * 0.000621371)
+
+# Calcular distancias a Chicago CBD
+chicago_cbd <- chicago_cbd %>% st_transform(st_crs(chicago))
+chicago$dist_CBD <- st_distance(chicago, chicago_cbd)
+chicago <- chicago %>% mutate(dist_CBD = as.numeric(dist_CBD) * 0.000621371)
+
+# Preparar datos para an?lisis
+boston$City <- "Boston"
+chicago$City <- "Chicago"
+chicago <- chicago %>% filter(dist_CBD <= 10)
+st_drop_geometry(chicago)
+st_drop_geometry(boston)
+dta = rbind(chicago, boston)
+
+# Crear un gr?fico de dispersi?n
+ggplot(dta, aes(x = dist_CBD, y = estimate, color = City)) +
+  geom_point(shape = 1) + geom_smooth(method = "lm") +
+  xlab("Distancia al centro de la ciudad (millas)") +
+  ylab("Precio medio de viviendas ($)") + theme_test()
+
+# Seleccionar columnas relevantes y eliminar filas con valores faltantes
+dta <- dta %>% dplyr::select(City, estimate, dist_CBD) %>% na.omit()
+
+# Realizar una transformaci?n de Box-Cox y encontrar el valor ?ptimo de lambda
+y <- dta$estimate
+dist <- dta$dist_CBD
+g <- boxcox(y ~ dist, lambda = c(-1, -0.5, -0.25, 0, 0.25, 0.5, 1))
+lambda <- g$x[which.max(g$y)]
+lambda
+
+# Crear un gr?fico de dispersi?n con la transformaci?n de logaritmica
+ggplot(dta, aes(x = dist_CBD, y = log(estimate), color = City)) +
+  geom_point(shape = 1) + geom_smooth(method = "lm") +
+  xlab("Distancia al centro de la ciudad (millas)") +
+  ylab("Logaritmo del precio medio de viviendas ($)") + theme_test()
+
+                                                                                                                                                                                                                                                                                                                                                                                  
