@@ -4,7 +4,7 @@
 
 # Libraries ---------------------------------------------------------------
 library(pacman)
-p_load(osmdata, tidyverse, sf, fixest, units, modelsummary, conleyreg, SFD)
+p_load(osmdata, tidyverse, sf, fixest, units, modelsummary, conleyreg)
 
 # Prices: Load data for Bogota and Medellin ---------------------------------------
 
@@ -264,33 +264,31 @@ modelsummary(models_ols,
 
 ##### Conley regs #####
 #Uses the same formula and should yield the same estimates, only changes std. errors
+
 bog_conley_venta <- conleyreg(ols_form,
                        data = venta_bog,
+                       ncores=8,
                        dist_cutoff = 1,
                        crs = st_crs(3116),
-                       st_distance = T,
-                       dist_which = "Euclidean")
+                       st_distance = F)
 
 bog_conley_arriendo <- conleyreg(ols_form,
                               data = arriendo_bog,
                               dist_cutoff = 1,
                               crs = st_crs(3116),
-                              st_distance = T,
-                              dist_which = "Euclidean")
+                              st_distance = F)
 
 med_conley_venta <- conleyreg(ols_form,
                             data = venta_med,
                             dist_cutoff = 1,
                             crs = st_crs(3116),
-                            st_distance = T,
-                            dist_which = "Euclidean")
+                            st_distance = F)
 
 med_conley_arriendo <- conleyreg(ols_form,
                               data = arriendo_med,
                               dist_cutoff = 1,
                               crs = st_crs(3116),
-                              st_distance = T,
-                              dist_which = "Euclidean")
+                              st_distance = F)
 
 
 
@@ -326,7 +324,7 @@ sfd_form <- formula(diff(logprice)~diff(near_open_space) + diff(near_open_space_
 bog_sfd_venta <- lm(sfd_form, data = venta_bog)
 bog_sfd_arriendo <- lm(sfd_form, data = arriendo_bog)
 med_sfd_venta <- lm(sfd_form, data = venta_med)
-med_sfd_venta <- lm(sfd_form, data = venta_med)
+med_sfd_arriendo <- lm(sfd_form, data = arriendo_med)
 
 models_sfd<-list()
 models_sfd[["Precio de venta (log) en Bogotá"]] <- bog_sfd_venta
@@ -347,7 +345,7 @@ coefs <- c("diff(near_open_space)" = "Menos de 200m a parque [0=No, 1=Sí]",
 
 modelsummary(models_sfd,
              fmt=fmt_decimal(digits = 6),
-             stars = c("*"=0.1, "**"=0.05, "***"=0.001),
+             stars = c("*"=0.1, "**"=0.05, "***"=0.01),
              coef_map = coefs,
              gof_map = gm,
              output = "tables/modelos_sfd_p3.tex")

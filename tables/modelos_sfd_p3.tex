@@ -1,0 +1,32 @@
+\begin{table}
+\centering
+\begin{tabular}[t]{lcccc}
+\toprule
+  & Precio de venta (log) en Bogotá & Precio de arriendo (log) en Bogotá & Precio de venta (log) en Medellín & Precio de arriendo (log) en Medellín\\
+\midrule
+Menos de 200m a parque [0=No, 1=Sí] & \num{-0.031584}** & \num{0.081014}*** & \num{0.127841}*** & \num{0.027006}\\
+ & (\num{0.012050}) & (\num{0.014879}) & (\num{0.019274}) & (\num{0.018260})\\
+Menos de 200m a parque * Distancia a estación de policía & \num{-0.000114}*** & \num{-0.000183}*** & \num{-0.000036}*** & \num{-0.000008}\\
+ & (\num{0.000011}) & (\num{0.000014}) & (\num{0.000010}) & (\num{0.000009})\\
+Distancia a estación de policía & \num{-0.000001} & \num{-0.000059}*** & \num{0.000163}*** & \num{0.000175}***\\
+ & (\num{0.000009}) & (\num{0.000012}) & (\num{0.000007}) & (\num{0.000007})\\
+Distancia a colegio & \num{0.000264}*** & \num{0.000316}*** & \num{0.000042}** & \num{0.000072}***\\
+ & (\num{0.000010}) & (\num{0.000013}) & (\num{0.000017}) & (\num{0.000016})\\
+Distancia a hospital & \num{-0.000014}*** & \num{-0.000034}*** & \num{-0.000019}** & \num{-0.000100}***\\
+ & (\num{0.000004}) & (\num{0.000006}) & (\num{0.000009}) & (\num{0.000010})\\
+Número de habitaciones & \num{-0.098981}*** & \num{-0.005221}* & \num{-0.004414} & \num{0.057013}***\\
+ & (\num{0.001963}) & (\num{0.002816}) & (\num{0.005121}) & (\num{0.005105})\\
+Número de baños & \num{0.391869}*** & \num{0.388456}*** & \num{0.328950}*** & \num{0.306647}***\\
+ & (\num{0.002650}) & (\num{0.003549}) & (\num{0.004976}) & (\num{0.005782})\\
+Área de la propiedad & \num{0.000135}*** & \num{0.000053}*** & \num{0.000070}*** & \num{0.000000}\\
+ & (\num{0.000006}) & (\num{0.000005}) & (\num{0.000008}) & (\num{0.000000})\\
+Constante & \num{-0.000007} & \num{-0.000003} & \num{-0.000014} & \num{-0.000008}\\
+ & (\num{0.003935}) & (\num{0.005104}) & (\num{0.007191}) & (\num{0.006916})\\
+\midrule
+N & \num{41617} & \num{25851} & \num{9372} & \num{8798}\\
+R2 & \num{0.43} & \num{0.45} & \num{0.54} & \num{0.50}\\
+Adj. R2 & \num{0.43} & \num{0.45} & \num{0.54} & \num{0.50}\\
+\bottomrule
+\multicolumn{5}{l}{\rule{0pt}{1em}* p $<$ 0.1, ** p $<$ 0.05, *** p $<$ 0.001}\\
+\end{tabular}
+\end{table}
