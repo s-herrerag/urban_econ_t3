@@ -4,7 +4,7 @@
 
 # Libraries ---------------------------------------------------------------
 library(pacman)
-p_load(osmdata, tidyverse, sf, fixest, units)
+p_load(osmdata, tidyverse, sf, fixest, units, modelsummary, conleyreg)
 
 # Prices: Load data for Bogota and Medellin ---------------------------------------
 
@@ -21,8 +21,12 @@ mgn_2021_mpio <- st_read("data/punto3/MGN/MGN_MPIO_POLITICO") %>%
 
 #Spatial join
 dataTaller2_sf <- dataTaller2_sf %>%
-  st_join(mgn_2021_mpio, .predicate=st_intersects, left = T)
-
+  st_join(mgn_2021_mpio, .predicate=st_intersects, left = T) %>%
+  mutate(logprice=log(price)) %>%#Use logs of price
+  filter(logprice!=Inf) %>%
+  filter(logprice !=-Inf) %>%
+  drop_na(logprice)
+  
 #Create two dfs with prices
 prices_bog <- dataTaller2_sf %>%
   filter(COD_MPIO=="11001")
@@ -148,22 +152,26 @@ retrieve_amenities <- function(bbox, key, value, type="polygons") {
 hospitals_bog_points <- retrieve_amenities(bbox_bog, "amenity", "hospital")
 schools_bog_points <- retrieve_amenities(bbox_bog, "amenity", "school")
 bus_bog_points <- retrieve_amenities(bbox_bog, "amenity", "bus_station", "points")
+police_bog_points <- retrieve_amenities(bbox_bog, "amenity", "police")
 
 #Add to df
 prices_bog$dist_hospital <- nearest_amenity(prices_bog, hospitals_bog_points) 
-prices_bog$dist_school <- nearest_amenity(prices_bog,  hospitals_bog_points)
+prices_bog$dist_school <- nearest_amenity(prices_bog,  schools_bog_points)
 prices_bog$dist_bus <- nearest_amenity(prices_bog, bus_bog_points)
-
+prices_bog$dist_police <- nearest_amenity(prices_bog, police_bog_points)
 
 ##Med 
 hospitals_med_points <- retrieve_amenities(bbox_med, "healthcare", "hospital")
 schools_med_points <- retrieve_amenities(bbox_med, "amenity", "school")
 bus_med_points <- retrieve_amenities(bbox_med, "amenity", "bus_station", "points")
+police_med_points <- retrieve_amenities(bbox_med, "amenity", "police")
 
 #Add to df
 prices_med$dist_hospital <- nearest_amenity(prices_med, hospitals_med_points) 
-prices_med$dist_school <- nearest_amenity(prices_med,  hospitals_med_points)
+prices_med$dist_school <- nearest_amenity(prices_med,  schools_med_points)
 prices_med$dist_bus <- nearest_amenity(prices_med, bus_med_points)
+prices_med$dist_police <- nearest_amenity(prices_med, police_med_points)
+
 
 ### Lastly, add UPL and comunas
 upl_bog <- st_read("data/punto3/unidadplaneamientolocal.gpkg") %>%
@@ -175,8 +183,138 @@ comunas_med <- st_read("data/punto3/comunas_medellin") %>%
   filter(grepl("Comuna", IDENTIFICA)) %>%
   dplyr::select(IDENTIFICA, geometry)
 
-prices_bog <- st_join(prices_bog, upl_bog, join= st_nearest_feature)
+prices_bog <- prices_bog %>%
+  st_join(upl_bog, join= st_nearest_feature)
+
+prices_bog <- prices_bog %>%
+  rename("spatial_group_id"="CODIGO_UPL")
+  
 prices_med <- st_join(prices_med, comunas_med, join= st_nearest_feature)
+
+prices_med <- prices_med %>%
+  rename("spatial_group_id"="IDENTIFICA")
+
+
+# Estimates ---------------------------------------------------------------
+
+### Split rental vs sale
+arriendo_bog <- prices_bog %>%
+  filter(operation=="Alquiler") %>%
+  mutate() 
+venta_bog <- prices_bog %>%
+  filter(operation=="Venta")
+
+arriendo_med <- prices_med %>%
+  filter(operation=="Alquiler")
+venta_med <- prices_med %>%
+  filter(operation=="Venta")
+
+##### OLS #####
+#Standard errors are clustered
+
+ols_form <- formula(logprice~near_open_space + near_open_space:dist_police +  dist_hospital + dist_school + dist_police +
+                      bedrooms + bathrooms + surface_covered | spatial_group_id)
+
+bog_ols_venta <- feols(ols_form,
+                       data = venta_bog,
+                       cluster = ~spatial_group_id)
+
+bog_ols_arriendo <- feols(ols_form,
+                          data = arriendo_bog,
+                          cluster = ~spatial_group_id)
+
+med_ols_venta <- feols(ols_form,
+                       data = venta_med,
+                       cluster = ~spatial_group_id)
+
+med_ols_arriendo <- feols(ols_form,
+                          data = arriendo_med,
+                          cluster = ~spatial_group_id)
+
+##Export results with modelsummary
+
+##Outputs from the models
+coefs <- c("near_open_space" = "Menos de 200m a parque [0=No, 1=Sí]",
+           "near_open_space:dist_police" = "Menos de 200m a parque * Distancia a estación de policía",
+           "dist_police" = "Distancia a estación de policía",
+           "dist_school" = "Distancia a colegio", 
+           "dist_hospital" = "Distancia a hospital", 
+           "bedrooms" = "N Habitaciones",
+           "bathrooms" = "N baños",
+           "surface_covered" = "Área de la propiedad",
+           "(Intercept)" = "Constante")
+gm <- tibble::tribble(
+  ~raw,        ~clean,          ~fmt,
+  "nobs",      "N",             0,
+  "r.squared", "R2",            2,
+  "adj.r.squared", "Adj. R2",   2)
+
+models_ols<-list()
+models_ols[["Precio de venta (log) en Bogotá"]] <- bog_ols_venta
+models_ols[["Precio de arriendo (log) en Bogotá"]] <- bog_ols_arriendo
+models_ols[["Precio de venta (log) en Medellín"]] <- med_ols_venta
+models_ols[["Precio de arriendo (log) en Medellín"]] <- med_ols_arriendo
+
+modelsummary(models_ols,
+             fmt=fmt_decimal(digits = 6),
+             stars = c("*"=0.1, "**"=0.05, "***"=0.001),
+             coef_map = coefs,
+             gof_map = gm,
+             output = "tables/modelos_ols(clustered)_p3.tex")
+
+##### Conley regs #####
+#Uses the same formula and should yield the same estimates, only changes std. errors
+bog_conley_venta <- conleyreg(ols_form,
+                       data = venta_bog,
+                       dist_cutoff = 3,
+                       crs = st_crs(3116),
+                       st_distance = T,
+                       dist_which = "Euclidean")
+
+bog_conley_arriendo <- conleyreg(ols_form,
+                              data = arriendo_bog,
+                              dist_cutoff = 3,
+                              crs = st_crs(3116),
+                              st_distance = T)
+
+med_conley_venta <- conleyreg(ols_form,
+                            data = venta_med,
+                            dist_cutoff = 3,
+                            crs = st_crs(3116),
+                            st_distance = T)
+
+med_conley_arriendo <- conleyreg(ols_form,
+                              data = arriendo_med,
+                              dist_cutoff = 1000,
+                              crs = st_crs(3116),
+                              st_distance = T,
+                              dist_which = "Euclidean")
+
+
+
+summary(med_conley_arriendo)
+
+modelsummary(med_conley_arriendo,
+             output = "tables/test_conley.tex")
+
+##### SFD #####
+
+ggplot(venta_bog)+
+  geom_histogram(aes(x=logprice))
+
+
+ggplot(venta_bog)+
+  geom_point(aes(x=dist_park, y=price))
+
+
+
+
+
+
+
+
+
+
 
 
 
