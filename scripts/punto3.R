@@ -4,7 +4,7 @@
 
 # Libraries ---------------------------------------------------------------
 library(pacman)
-p_load(osmdata, tidyverse, sf, fixest, units, modelsummary, conleyreg)
+p_load(osmdata, tidyverse, sf, fixest, units, modelsummary, conleyreg, SFD)
 
 # Prices: Load data for Bogota and Medellin ---------------------------------------
 
@@ -239,8 +239,8 @@ coefs <- c("near_open_space" = "Menos de 200m a parque [0=No, 1=Sí]",
            "dist_police" = "Distancia a estación de policía",
            "dist_school" = "Distancia a colegio", 
            "dist_hospital" = "Distancia a hospital", 
-           "bedrooms" = "N Habitaciones",
-           "bathrooms" = "N baños",
+           "bedrooms" = "Número de habitaciones",
+           "bathrooms" = "Número de baños",
            "surface_covered" = "Área de la propiedad",
            "(Intercept)" = "Constante")
 gm <- tibble::tribble(
@@ -266,55 +266,89 @@ modelsummary(models_ols,
 #Uses the same formula and should yield the same estimates, only changes std. errors
 bog_conley_venta <- conleyreg(ols_form,
                        data = venta_bog,
-                       dist_cutoff = 3,
+                       dist_cutoff = 1,
                        crs = st_crs(3116),
                        st_distance = T,
                        dist_which = "Euclidean")
 
 bog_conley_arriendo <- conleyreg(ols_form,
                               data = arriendo_bog,
-                              dist_cutoff = 3,
+                              dist_cutoff = 1,
                               crs = st_crs(3116),
-                              st_distance = T)
+                              st_distance = T,
+                              dist_which = "Euclidean")
 
 med_conley_venta <- conleyreg(ols_form,
                             data = venta_med,
-                            dist_cutoff = 3,
+                            dist_cutoff = 1,
                             crs = st_crs(3116),
-                            st_distance = T)
+                            st_distance = T,
+                            dist_which = "Euclidean")
 
 med_conley_arriendo <- conleyreg(ols_form,
                               data = arriendo_med,
-                              dist_cutoff = 1000,
+                              dist_cutoff = 1,
                               crs = st_crs(3116),
                               st_distance = T,
                               dist_which = "Euclidean")
 
 
 
-summary(med_conley_arriendo)
+models_conley<-list()
+models_conley[["Precio de venta (log) en Bogotá"]] <- bog_conley_venta
+models_conley[["Precio de arriendo (log) en Bogotá"]] <- bog_conley_arriendo
+models_conley[["Precio de venta (log) en Medellín"]] <- med_conley_venta
+models_conley[["Precio de arriendo (log) en Medellín"]] <- med_conley_arriendo
 
-modelsummary(med_conley_arriendo,
-             output = "tables/test_conley.tex")
+modelsummary(models_conley,
+             fmt=fmt_decimal(digits = 6),
+             stars = c("*"=0.1, "**"=0.05, "***"=0.001),
+             coef_map = coefs,
+             gof_map = gm,
+             output = "tables/modelos_conley_p3.tex")
 
 ##### SFD #####
+#Add interaction to the df to employ it in SFD
 
-ggplot(venta_bog)+
-  geom_histogram(aes(x=logprice))
+arriendo_bog <- arriendo_bog %>%
+  mutate(near_open_space_police=near_open_space*dist_police)
+venta_bog <- venta_bog %>%
+  mutate(near_open_space_police=near_open_space*dist_police)
+arriendo_med <- arriendo_med %>%
+  mutate(near_open_space_police=near_open_space*dist_police)
+venta_med <- venta_med %>%
+  mutate(near_open_space_police=near_open_space*dist_police)
 
-
-ggplot(venta_bog)+
-  geom_point(aes(x=dist_park, y=price))
-
-
-
-
-
-
-
-
+sfd_form <- formula(diff(logprice)~diff(near_open_space) + diff(near_open_space_police) +  diff(dist_hospital) + diff(dist_school) + diff(dist_police) +
+                      diff(bedrooms) + diff(bathrooms) + diff(surface_covered))
 
 
+bog_sfd_venta <- lm(sfd_form, data = venta_bog)
+bog_sfd_arriendo <- lm(sfd_form, data = arriendo_bog)
+med_sfd_venta <- lm(sfd_form, data = venta_med)
+med_sfd_venta <- lm(sfd_form, data = venta_med)
+
+models_sfd<-list()
+models_sfd[["Precio de venta (log) en Bogotá"]] <- bog_sfd_venta
+models_sfd[["Precio de arriendo (log) en Bogotá"]] <- bog_sfd_arriendo
+models_sfd[["Precio de venta (log) en Medellín"]] <- med_sfd_venta
+models_sfd[["Precio de arriendo (log) en Medellín"]] <- med_sfd_arriendo
 
 
+coefs <- c("diff(near_open_space)" = "Menos de 200m a parque [0=No, 1=Sí]",
+           "diff(near_open_space_police)" = "Menos de 200m a parque * Distancia a estación de policía",
+           "diff(dist_police)" = "Distancia a estación de policía",
+           "diff(dist_school)" = "Distancia a colegio", 
+           "diff(dist_hospital)" = "Distancia a hospital", 
+           "diff(bedrooms)" = "Número de habitaciones",
+           "diff(bathrooms)" = "Número de baños",
+           "diff(surface_covered)" = "Área de la propiedad",
+           "(Intercept)" = "Constante")
+
+modelsummary(models_sfd,
+             fmt=fmt_decimal(digits = 6),
+             stars = c("*"=0.1, "**"=0.05, "***"=0.001),
+             coef_map = coefs,
+             gof_map = gm,
+             output = "tables/modelos_sfd_p3.tex")
 
