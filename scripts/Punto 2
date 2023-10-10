@@ -1,0 +1,32 @@
+if(!require('eeptools')) {
+  install.packages('eeptools')
+  install.packages('officer')
+  install.packages('stargazer')
+  library('eeptools')
+  library('stargazer')
+  library('xtable')
+}
+install.packages("officer")
+install.packages("stargazer")
+install.packages("xtable",repos = "http://cran.us.r-project.org")
+library(stargazer)
+library(xtable)
+db_ejercicio2 <- readRDS("C:/Users/Usuario/Downloads/db_ejercicio2.Rds")
+class (db_ejercicio2$salario)
+
+db_ejercicio2$lnsalario <- log(db_ejercicio2$salario)
+db_ejercicio2$lnsalarioamenity<- (db_ejercicio2$lnsalario*db_ejercicio2$amenity)
+db_ejercicio2$salarioamenity<- (db_ejercicio2$salario*db_ejercicio2$amenity)
+Salarios<- lm(lnsalario ~ amenity, data=db_ejercicio2)
+ResultsW<-summary (Salarios)
+# Add Results to Word Document
+table <- stargazer(Salarios, type = "latex", title = "Regression Results", header = FALSE)
+
+db_ejercicio2$lnarriendo<- log(db_ejercicio2$arriendo)
+db_ejercicio2$lnsalarioamenity<- (db_ejercicio2$lnsalario*db_ejercicio2$amenity)
+db_ejercicio2$salarioamenity<- (db_ejercicio2$salario*db_ejercicio2$amenity)
+Arriendo<- lm(lnarriendo ~ amenity, data=db_ejercicio2)
+ResultsR<-summary (Arriendo)
+# Add Results to Word Document
+table <- stargazer(Arriendo, type = "latex", title = "Regression Results", header = FALSE)
+(0.08*(-0.097))-0.262

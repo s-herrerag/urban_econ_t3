@@ -1,0 +1,30 @@
+\begin{table}
+\centering
+\begin{tabular}[t]{lcccc}
+\toprule
+  & Precio de venta (log) en Bogotá & Precio de arriendo (log) en Bogotá & Precio de venta (log) en Medellín & Precio de arriendo (log) en Medellín\\
+\midrule
+Menos de 200m a parque [0=No, 1=Sí] & \num{0.002791} & \num{0.038334} & \num{0.080591}** & \num{-0.016961}\\
+ & (\num{0.064174}) & (\num{0.074583}) & (\num{0.030790}) & (\num{0.035790})\\
+Menos de 200m a parque * Distancia a estación de policía & \num{-0.000081}* & \num{-0.000093}** & \num{-0.000021} & \num{0.000005}\\
+ & (\num{0.000040}) & (\num{0.000045}) & (\num{0.000018}) & (\num{0.000019})\\
+Distancia a estación de policía & \num{-0.000040} & \num{-0.000024} & \num{0.000027} & \num{0.000061}**\\
+ & (\num{0.000057}) & (\num{0.000066}) & (\num{0.000028}) & (\num{0.000024})\\
+Distancia a colegio & \num{0.000011} & \num{0.000079}* & \num{0.000000} & \num{0.000108}\\
+ & (\num{0.000028}) & (\num{0.000040}) & (\num{0.000078}) & (\num{0.000129})\\
+Distancia a hospital & \num{0.000057} & \num{0.000044} & \num{0.000043} & \num{-0.000053}\\
+ & (\num{0.000050}) & (\num{0.000069}) & (\num{0.000069}) & (\num{0.000044})\\
+Número de habitaciones & \num{-0.029394}** & \num{0.045698}*** & \num{0.016078} & \num{0.065946}***\\
+ & (\num{0.012676}) & (\num{0.011011}) & (\num{0.014436}) & (\num{0.014229})\\
+Número de baños & \num{0.319233}*** & \num{0.337402}*** & \num{0.300687}*** & \num{0.292126}***\\
+ & (\num{0.025975}) & (\num{0.019874}) & (\num{0.028565}) & (\num{0.018136})\\
+Área de la propiedad & \num{0.000130}* & \num{0.000066} & \num{0.000078} & \num{0.000000}\\
+ & (\num{0.000076}) & (\num{0.000073}) & (\num{0.000064}) & (\num{0.000000})\\
+\midrule
+N & \num{41618} & \num{25852} & \num{9373} & \num{8799}\\
+R2 & \num{0.59} & \num{0.58} & \num{0.61} & \num{0.57}\\
+Adj. R2 & \num{0.59} & \num{0.58} & \num{0.61} & \num{0.56}\\
+\bottomrule
+\multicolumn{5}{l}{\rule{0pt}{1em}* p $<$ 0.1, ** p $<$ 0.05, *** p $<$ 0.001}\\
+\end{tabular}
+\end{table}
